@@ -1,9 +1,15 @@
 Hut Group University Challenge
 ------------------------------
 #Intro
-This project is a platform for running the Hut Group Dev Challenge 2016 by building on the `Robocode` platform. It setups up a knockout tournament with free-for-all style matches from a given list of participants.
+Artificial intelligence is set to revolutionise the world around us. The scope for its application in business is huge, which is why The Hut Group needs to harness its full potential to stay ahead of the pack.
+ 
+Using AI, we’d like you to program a robot tank to battle others in real time. Develop your bot to learn from its mistakes and automate its own decisions on your journey to total domination.
+ 
+The Hut Group will provide the API to get you started and a training bot to test your skills. Live streams will be organised to showcase your performance against other applicants, as well as our very own house robots. For those who manage to annihilate the competition, there’s a £10k prize up for grabs.  
 
 #Format:
+Arena battle tournament. Optimize your bots for colliseum style battles. 
+
 ##Knockout Round:
 Bots randomly grouped into brackets. Each bracket competes in a free-for-all. Winners from each bracket will compete in a final free-for-all battle.
 
@@ -17,26 +23,11 @@ The score for a round is based on:
 
 #Setup:
 ##Developing a `Bot`:
-Vlad will contribute to this section though I imagine it will consist of the following steps:
- * Download and install robocode
- * Run robocode with the sample bots
- * Clone the sample repository
- * Build the sample bot
- * Run it with the sample bot
- * Add a feature and repeat the above
+`THIS REPO IS DESIGNED TO BE RUN IN INTELLIJ`
+To develop your bot follow these steps:
 
-##Running `THGEngine`:
-WIP not ready yet
- * Clone and unpack the solution
- * Add your jar to the robots directory
- * Run sanity_check.sh (to check whether your setup is fine)
- * Run `thgengine.sh <list of participating bots>`
- 
 #Prizes:
 TBD
-
-
-
 
 #Notes
 
