@@ -8,7 +8,7 @@ Using AI, we’d like you to program a robot tank to battle others in real time.
 The Hut Group will provide the API to get you started and a training bot to test your skills. Live streams will be organised to showcase your performance against other applicants, as well as our very own house robots. For those who manage to annihilate the competition, there’s a £10k prize up for grabs.  
 
 #Format:
-Arena battle tournament. Optimize your bots for coliseum style battles. 
+Arena battle tournament. Optimize your bots for coliseum style battles. `Arena size 1000x1000` 
 
 ##Knockout Round:
 Bots randomly grouped into brackets. Each bracket competes in a free-for-all. Winners from each bracket will compete in a final free-for-all battle.
@@ -23,7 +23,7 @@ The score for a round is based on:
 
 #Setup:
 ##Developing a `Bot`:
-`THIS REPO IS DESIGNED TO BE RUN IN INTELLIJ`
+`THIS REPO IS DESIGNED TO BE RUN IN INTELLIJ` 
 To develop your bot follow these steps:
 
 #Prizes:
