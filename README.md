@@ -45,5 +45,6 @@ To develop your bot follow these steps:
 ##Making your submission:  
 *Get your robot jarfile, your java classes ( if you want you can add a readme describing who you are and why your bot is this way)
 
-#Prizes:
-TBD
+#Prizes:  
+*£10,000.  
+*Immediate job offers for the winners.
