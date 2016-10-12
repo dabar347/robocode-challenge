@@ -43,7 +43,7 @@ To develop your bot follow these steps:
 *Names, Descriptions - Have fun ;)  
 
 ##Making your submission:  
-*Get your robot jarfile, your java classes ( if you want you can add a readme describing who you are and why your bot is this way)
+*Get your robot jar and your source code and dump them into a public github repo. Submit your repo link through our official submission page (you should have entered that during registration, if you havent registered yet click [here](http://challenge.thehutgroup.com/technology/register)
 
 #Prizes:  
 *£10,000.  
