@@ -46,5 +46,4 @@ To develop your bot follow these steps:
 *Get your robot jar and your source code and dump them into a public github repo. Submit your repo link through our official submission page (you should have entered that during registration, if you havent registered yet click [here](http://challenge.thehutgroup.com/technology/register)
 
 #Prizes:  
-*£10,000.  
-*Immediate job offers for the winners.
+*£16,000 prize pool. 
