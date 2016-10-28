@@ -20,6 +20,7 @@ import java.util.Dictionary;
 public class Pochelucr extends AdvancedRobot {
 
     private final double aimingAngleThreshold = 0.1;
+    private final double movementThreshold = 0.1;
 
     private ArrayList<EnemyInfo> enemies = new ArrayList<EnemyInfo>();
     private EnemyInfo chosenEnemy = null;
@@ -45,8 +46,11 @@ public class Pochelucr extends AdvancedRobot {
 
     private TargetingMode targetingMode = TargetingMode.HEAD_ON;
 
+    private enum MovementMode {
+        PENDULUM
+    }
 
-    private int direction = 1;
+    private MovementMode movementMode = MovementMode.PENDULUM;
 
     public void run() {
         try {
@@ -59,10 +63,9 @@ public class Pochelucr extends AdvancedRobot {
             while (true) {
                 //Add your execute methods here
                 setTurnRadarRight(Double.POSITIVE_INFINITY);
-                setTurnLeft(8*direction);
-                setAhead(15*direction);
 
                 roboStateMachine();
+                movementStateMachine();
 //                setTurnGunRight(10);
                 execute();
             }
@@ -108,6 +111,21 @@ public class Pochelucr extends AdvancedRobot {
                 break;
         }
         roboMode = RoboMode.TO_FIRE;
+    }
+
+    private int direction = 1;
+    private final int movementAbs = 150;
+
+    private void movementStateMachine(){
+        switch (movementMode)
+        {
+            case PENDULUM:
+                if(Math.abs(getDistanceRemaining()) <= movementThreshold) {
+                    setAhead(movementAbs * direction);
+                    direction *= -1;
+                }
+                break;
+        }
     }
 
     private boolean canShoot(){
