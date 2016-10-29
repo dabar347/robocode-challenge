@@ -8,6 +8,8 @@ public class EnemyInfo {
     private String name;
 
     public double lastBearing = 0.0;
+    public double lastVelocity = 0.0;
+    public double lastHeading = 0.0;
 
     public EnemyInfo(String name)
     {
