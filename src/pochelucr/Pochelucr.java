@@ -6,15 +6,22 @@ import robocode.util.Utils;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 
 public class Pochelucr extends AdvancedRobot {
+
+    private static boolean isInit = false;
+
+    private Random r = new Random();
 
     private final double aimingAngleThreshold = 0.1;
     private final double movementThreshold = 0.1;
     private final double bulletPower = 1;
 
-    private double bulletAvg[] = new double[TargetingMode.values().length];
-    private ArrayList<ArrayList<Integer>> bulletIds = new ArrayList<ArrayList<Integer>>(TargetingMode.values().length);
+    private static int bulletHit[] = new int[TargetingMode.values().length];
+    private static ArrayList<ArrayList<Integer>> bulletShoot = new ArrayList<ArrayList<Integer>>();
+//    private static int bulletShoot[] = new int[TargetingMode.values().length];
+    private final int targetingRecalculationTime = 50;
 
     private ArrayList<EnemyInfo> enemies = new ArrayList<EnemyInfo>();
     private EnemyInfo chosenEnemy = null;
@@ -36,7 +43,16 @@ public class Pochelucr extends AdvancedRobot {
 
     private enum TargetingMode {
         HEAD_ON,
-        LINEAR
+        LINEAR;
+
+        private static TargetingMode[] _values = TargetingMode.values();
+        public static TargetingMode fromInteger(int x) {
+            if(x < _values.length)
+            {
+                return _values[x];
+            }
+            return null;
+        }
     }
 
     private TargetingMode targetingMode = TargetingMode.LINEAR;
@@ -46,6 +62,8 @@ public class Pochelucr extends AdvancedRobot {
     }
 
     private MovementMode movementMode = MovementMode.PENDULUM;
+
+    private long lastTime = -targetingRecalculationTime;
 
     public void run() {
         try {
@@ -59,6 +77,12 @@ public class Pochelucr extends AdvancedRobot {
                 //Add your execute methods here
                 setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
 
+                if (getTime() - lastTime >= targetingRecalculationTime)
+                {
+                    lastTime = getTime();
+                    chooseTargetingMode();
+                }
+
                 roboStateMachine();
                 movementStateMachine();
 //                setTurnGunRight(10);
@@ -67,6 +91,56 @@ public class Pochelucr extends AdvancedRobot {
         } catch (RuntimeException re) {
             System.out.println(re);
         }
+    }
+
+    private void chooseTargetingMode()
+    {
+        double bulletAvg[] = new double[bulletHit.length];
+
+        for (int i = 0; i < bulletAvg.length; i++)
+        {
+            try {
+                bulletAvg[i] = (double)bulletHit[i]/bulletShoot.get(i).size();
+            }
+            catch(IndexOutOfBoundsException e)
+            {
+                System.out.println(e.getMessage());
+            }
+        }
+
+        double bulletHitSum = 0;
+
+        for (double v : bulletAvg)
+        {
+            bulletHitSum += v;
+        }
+
+        for(int i = 0; i < bulletAvg.length; i++)
+        {
+            if (bulletHitSum == 0)
+                bulletAvg[i] = 1.0/bulletAvg.length;
+            else
+                bulletAvg[i] = bulletAvg[i]/bulletHitSum;
+        }
+
+        double _r = r.nextDouble();
+        double cumulativeProb = 0.0;
+
+        System.out.println("_r="+_r);
+        System.out.println("headon="+bulletAvg[0]+" "+bulletHit[0]+" "+bulletShoot.get(0).size());
+        System.out.println("linear="+bulletAvg[1]+" "+bulletHit[1]+" "+bulletShoot.get(1).size());
+
+        for (int i = 0; i < bulletAvg.length; i++)
+        {
+            cumulativeProb += bulletAvg[i];
+            if(_r <= cumulativeProb){
+                targetingMode = TargetingMode.fromInteger(i);
+                break;
+            }
+        }
+
+        System.out.println("targetingMode="+targetingMode);
+
     }
 
     private void roboStateMachine() {
@@ -89,11 +163,22 @@ public class Pochelucr extends AdvancedRobot {
             case WHEN_READY:
                 if(canShoot()) {
 //                    bulletIds.get(targetingMode).add(setFireBullet(bulletPower).);
-                    setFire(bulletPower);
+                    prepareFire();
                 }
                 break;
         }
         roboMode = RoboMode.SCANNING;
+    }
+
+    private void prepareFire() {
+//        setFire(bulletPower);
+        try {
+            bulletShoot.get(targetingMode.ordinal()).add(setFireBullet(bulletPower).hashCode());
+        }
+        catch(IndexOutOfBoundsException e)
+        {
+            System.out.println(e.getMessage());
+        }
     }
 
     private void targetStateMachine(){
@@ -144,7 +229,16 @@ public class Pochelucr extends AdvancedRobot {
     //Initialization process
     //If you have data structures or preprocessing before the match
     private void initComponents() {
-        Arrays.fill(bulletAvg,0.5);
+        if(!isInit) {
+            Arrays.fill(bulletHit, 1);
+            for (int i = 0; i < TargetingMode.values().length; i++)
+            {
+                bulletShoot.add(new ArrayList<Integer>());
+                bulletShoot.get(i).add(0);
+            }
+//            Arrays.fill(bulletShoot, 1);
+            isInit = true;
+        }
     }
 
     //Fancy colours for your bot
@@ -215,7 +309,15 @@ public class Pochelucr extends AdvancedRobot {
     //You hit someone with your gun, make sure to use that to your advantage
     public void onBulletHit(BulletHitEvent e) {
         try {
-            e.getBullet();
+            for (int i = 0; i < bulletShoot.size(); i++)
+            {
+                if(bulletShoot.get(i).contains(e.getBullet().hashCode()))
+                {
+                    bulletHit[i]++;
+                    break;
+                }
+            }
+//            bulletHit[targetingMode.ordinal()]++;
         } catch (RuntimeException re) {
             System.out.println(re);
         }
@@ -262,7 +364,7 @@ public class Pochelucr extends AdvancedRobot {
     public void onSkippedTurn(SkippedTurnEvent e) {
         System.out.println("TURN SKIP : " + e.getTime());
     }
-    
+
 
 
 }
