@@ -10,12 +10,14 @@ import java.util.Random;
 
 public class Pochelucr extends AdvancedRobot {
 
-    private static boolean isInit = false;
+    private static int round = 0;
+    private final static int decisionRound = 0;
 
     private Random r = new Random();
 
-    private final double aimingAngleThreshold = 0.1;
+    private final double aimingAngleThreshold = 0.05;
     private final double movementThreshold = 0.05;
+    private final double enemyChoiseThreshold = 100.0;
     private double bulletPower = 1;
 
     private static int bulletHit[] = new int[TargetingMode.values().length];
@@ -63,7 +65,7 @@ public class Pochelucr extends AdvancedRobot {
         RAMMING
     }
 
-    private MovementMode movementMode = MovementMode.RAMMING;
+    private MovementMode movementMode = MovementMode.PENDULUM;
 
     private long lastTime = -targetingRecalculationTime;
 
@@ -112,6 +114,25 @@ public class Pochelucr extends AdvancedRobot {
             {
                 System.out.println(e.getMessage());
             }
+        }
+
+        if(decisionRound != 0 && round >= decisionRound)
+        {
+            double maxV = 0.0;
+            int maxI = 0;
+
+            for (int i = 0; i < bulletAvg.length; i++)
+            {
+                if (maxV < bulletAvg[i])
+                {
+                    maxI = i;
+                    maxV = bulletAvg[i];
+                }
+            }
+
+            targetingMode = TargetingMode.fromInteger(maxI);
+
+            return;
         }
 
         double bulletHitSum = 0;
@@ -265,7 +286,7 @@ public class Pochelucr extends AdvancedRobot {
     //Initialization process
     //If you have data structures or preprocessing before the match
     private void initComponents() {
-        if(!isInit) {
+        if(round == 0) {
             Arrays.fill(bulletHit, 1);
             for (int i = 0; i < TargetingMode.values().length; i++)
             {
@@ -273,8 +294,8 @@ public class Pochelucr extends AdvancedRobot {
                 bulletShoot.get(i).add(0);
             }
 //            Arrays.fill(bulletShoot, 1);
-            isInit = true;
         }
+        round++;
     }
 
     //Fancy colours for your bot
@@ -299,7 +320,9 @@ public class Pochelucr extends AdvancedRobot {
                 scannedEnemy.lastVelocity = e.getVelocity();
                 scannedEnemy.lastDistance = e.getDistance();
 
-                chosenEnemy = scannedEnemy;
+
+                if(chosenEnemy == null || chosenEnemy.isDead || scannedEnemy.lastDistance < chosenEnemy.lastDistance - enemyChoiseThreshold)
+                    chosenEnemy = scannedEnemy;
                 roboMode = RoboMode.TO_AIM;
             }
 
@@ -326,7 +349,7 @@ public class Pochelucr extends AdvancedRobot {
     //Somebody died, maybe record some information about it?
     public void onRobotDeath(RobotDeathEvent e) {
         try {
-
+            getEnemyByName(e.getName()).isDead = true;
         } catch (RuntimeException re) {
             System.out.println(re);
         }

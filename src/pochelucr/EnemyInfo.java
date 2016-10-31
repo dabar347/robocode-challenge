@@ -11,6 +11,7 @@ public class EnemyInfo {
     public double lastVelocity = 0.0;
     public double lastHeading = 0.0;
     public double lastDistance = 0.0;
+    public boolean isDead = false;
 
     public EnemyInfo(String name)
     {
