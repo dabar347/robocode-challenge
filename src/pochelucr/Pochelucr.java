@@ -55,6 +55,7 @@ public class Pochelucr extends AdvancedRobot {
 
     private ArrayList<EnemyInfo> enemies = new ArrayList<EnemyInfo>();
     private EnemyInfo chosenEnemy = null;
+    private EnemyInfo avoidedEnemy = null;
 
     private enum GunMode {
         OFF,
@@ -252,6 +253,9 @@ public class Pochelucr extends AdvancedRobot {
                     prepareFire();
                     roboMode = RoboMode.SCANNING;
                 }
+                else {
+                    roboMode = RoboMode.TO_AIM;
+                }
                 break;
             case CHASE_WHEN_READY:
                 if(canShoot()) {
@@ -296,7 +300,7 @@ public class Pochelucr extends AdvancedRobot {
     }
 
     private void targetStateMachine(){
-        if(chosenEnemy == null || getGunHeat() > gunHeatAimingThreshold)
+        if(chosenEnemy == null /*|| getGunHeat() > gunHeatAimingThreshold*/)
             return;
 
         double turnAngle = 0.0;
@@ -304,17 +308,17 @@ public class Pochelucr extends AdvancedRobot {
         switch (targetingMode)
         {
             case HEAD_ON:
-                turnAngle = chosenEnemy.lastBearing-getGunHeadingRadians();
+                turnAngle = chosenEnemy.getPredictedLastBearing(getX(),getY())-getGunHeadingRadians();
                 break;
             case LINEAR:
-                turnAngle = chosenEnemy.lastBearing-getGunHeadingRadians() + (chosenEnemy.lastVelocity * Math.sin(chosenEnemy.lastHeading - chosenEnemy.lastBearing) / Rules.getBulletSpeed(bulletPower));
+                turnAngle = chosenEnemy.getPredictedLastBearing(getX(),getY())-getGunHeadingRadians() + (chosenEnemy.lastVelocity * Math.sin(chosenEnemy.lastHeading - chosenEnemy.getPredictedLastBearing(getX(),getY())) / Rules.getBulletSpeed(bulletPower));
                 break;
             case LINEAR_HEAD_FAKE:
-                turnAngle = chosenEnemy.lastBearing-getGunHeadingRadians() + (-chosenEnemy.lastVelocity * Math.sin(chosenEnemy.lastHeading - chosenEnemy.lastBearing) / Rules.getBulletSpeed(bulletPower));
+                turnAngle = chosenEnemy.getPredictedLastBearing(getX(),getY())-getGunHeadingRadians() + (-chosenEnemy.lastVelocity * Math.sin(chosenEnemy.lastHeading - chosenEnemy.getPredictedLastBearing(getX(),getY())) / Rules.getBulletSpeed(bulletPower));
                 break;
             case CIRCULAR:
                 double dT = 0.0;
-                double predictedX = chosenEnemy.getRelativeX(), predictedY = chosenEnemy.getRelativeY();
+                double predictedX = chosenEnemy.getRelativeX(getX()), predictedY = chosenEnemy.getRelativeY(getY());
                 while((++dT*Rules.getBulletSpeed(bulletPower)+getGunHeat()/getGunCoolingRate()+Math.abs(turnAngle)/Rules.GUN_TURN_RATE_RADIANS) < Point2D.Double.distance(0,0,predictedX,predictedY)){
                     predictedX += chosenEnemy.lastVelocity*Math.sin(chosenEnemy.lastHeading + chosenEnemy.lastTurnRate*dT);
                     predictedY += chosenEnemy.lastVelocity*Math.cos(chosenEnemy.lastHeading + chosenEnemy.lastTurnRate*dT);
@@ -381,8 +385,12 @@ public class Pochelucr extends AdvancedRobot {
             case AVOID:
                 if(!inAvoidance)
                 {
-                    setAhead(r.nextDouble()*2*movementAbs-movementAbs);
-                    double _angle = Math.PI*(r.nextDouble()-0.5);
+                    double _dist = r.nextGaussian()*movementAbs;
+                    setAhead(_dist);
+//                    double _angle = Math.PI*(r.nextDouble()-0.5);
+                    double _angle = angleToTurn(Utils.normalAbsoluteAngle(r.nextGaussian()*Math.toRadians(30)+Math.PI/2+avoidedEnemy.lastBearing-getHeadingRadians()));
+                    System.out.println("Avoid angle = "+Math.toDegrees(_angle));
+                    System.out.println("Avoid dist  = "+_dist);
                     if(_angle < 0)
                         turnLeftRadians(-_angle);
                     else
@@ -424,7 +432,8 @@ public class Pochelucr extends AdvancedRobot {
 
     //Fancy colours for your bot
     private void initColors() {
-        setColors(new Color(77, 0, 50), new Color(64, 32, 53), new Color(225, 227,136));
+        setColors(new Color(77, 0, 50), new Color(64, 32, 53), new Color(225, 227, 136));
+        setBulletColor(new Color(139, 204, 0));
     }
 
     //When you scan an opponent do something
@@ -441,11 +450,13 @@ public class Pochelucr extends AdvancedRobot {
                 scannedEnemy = new EnemyInfo(e.getName());
                 enemies.add(scannedEnemy);
             }
-            scannedEnemy.setNewData(getHeadingRadians()+e.getBearingRadians(),e.getVelocity(),e.getDistance(),e.getHeadingRadians(),getTime());
+            scannedEnemy.setNewData(getHeadingRadians()+e.getBearingRadians(),e.getVelocity(),e.getDistance(),e.getHeadingRadians(),getTime(),getX(),getY());
 
             double energyDrop = scannedEnemy.lastEnergy - e.getEnergy();
             if(energyDrop <= 3.0 && energyDrop >= 1.0) {
                 System.out.println("Energy drop: " + e.getName() + " " + (scannedEnemy.lastEnergy - e.getEnergy()) + " at " + getTime());
+                avoidedEnemy = scannedEnemy;
+                inAvoidance = false;
                 movementMode = MovementMode.AVOID;
 //                System.out.println(movementMode);
             }
@@ -539,6 +550,7 @@ public class Pochelucr extends AdvancedRobot {
 
     //Trivial
     public void onHitWall(HitWallEvent e) {
+        inAvoidance = false;
         movementMode = MovementMode.AVOID;
 //        System.out.println(movementMode);
     }
