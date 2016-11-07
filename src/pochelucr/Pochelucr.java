@@ -16,22 +16,22 @@ public class Pochelucr extends AdvancedRobot {
 
     public void onPaint(Graphics2D g)
     {
-        g.setColor(Color.green);
-
-        g.drawLine((int)x0,(int)y0,(int)x1,(int)y1);
-
+//        g.setColor(Color.green);
+//
+//        g.drawLine((int)x0,(int)y0,(int)x1,(int)y1);
+//
         g.setColor(Color.BLUE);
 
         g.drawLine((int)x0,(int)y0,(int)(1000*Math.sin(a0)),(int)(1000*Math.cos(a0)));
-
-        g.setColor(Color.RED);
-
-        g.drawLine((int)x0,(int)y0,(int)(1000*Math.sin(a1+getGunHeadingRadians()-getGunTurnRemainingRadians())),(int)(1000*Math.cos(a1-getGunTurnRemainingRadians())));
+//
+//        g.setColor(Color.RED);
+//
+//        g.drawLine((int)x0,(int)y0,(int)(1000*Math.sin(a1+getGunHeadingRadians()-getGunTurnRemainingRadians())),(int)(1000*Math.cos(a1-getGunTurnRemainingRadians())));
 
         System.out.println("+++DEBUG+++");
         System.out.println(movementMode);
-        System.out.println(roboMode);
-        System.out.println(targetingMode);
+//        System.out.println(roboMode);
+//        System.out.println(targetingMode);
 
     }
 
@@ -43,8 +43,12 @@ public class Pochelucr extends AdvancedRobot {
 
     private final double aimingAngleThreshold = 0.1;
     private final double movementThreshold = 0.05;
-    private final double enemyChoiseThreshold = 100.0;
+    private final double enemyChoiseThreshold = 50.0;
     private final double gunHeatAimingThreshold = 0.1;
+
+    private final double wallBaseGravityK = 5;
+    private final double enemyBaseGravityK = 1;
+
     private double bulletPower = 1;
 
     private static int bulletHit[] = new int[TargetingMode.values().length];
@@ -94,6 +98,7 @@ public class Pochelucr extends AdvancedRobot {
     private enum MovementMode {
         PENDULUM,
         RAMMING,
+        ANTIGRAVITY,
         AVOID;
 
         private static MovementMode[] _values = MovementMode.values();
@@ -153,6 +158,8 @@ public class Pochelucr extends AdvancedRobot {
     private void chooseMovementMode()
     {
         movementMode = MovementMode.fromInteger(r.nextInt(MovementMode.values().length-1));
+
+        movementMode = MovementMode.ANTIGRAVITY;
 //        System.out.println(movementMode);
     }
 
@@ -326,12 +333,12 @@ public class Pochelucr extends AdvancedRobot {
                 }
 
 
-                x0 = getX();
-                x1 = predictedX+getX();
-                y0 = getY();
-                y1 = predictedY+getY();
-                a0 = Math.atan2(predictedX,predictedY);
-                a1 = turnAngle;
+//                x0 = getX();
+//                x1 = predictedX+getX();
+//                y0 = getY();
+//                y1 = predictedY+getY();
+//                a0 = Math.atan2(predictedX,predictedY);
+//                a1 = turnAngle;
 
 //                System.out.println("rX = "+predictedX+"; rY = "+predictedY+"; a = "+(int)Math.toDegrees(turnAngle)+"; a0 = "+(int)Math.toDegrees(Math.atan2(predictedY,predictedX)));
                 break;
@@ -382,9 +389,80 @@ public class Pochelucr extends AdvancedRobot {
                 }
                 setAhead(chosenEnemy.lastDistance*(Math.PI-Math.abs(toTurn))/Math.PI);
                 break;
-            case AVOID:
-                if(!inAvoidance)
+            case ANTIGRAVITY:
+                Point2D.Double forceVector = new Point2D.Double();
+
+                int alives = 0;
+
+                for (EnemyInfo v : enemies)
                 {
+                    if (!v.isDead)
+                    {
+//                        Point2D.Double enemyForce = calculateAntigravityForce(v);
+//                        forceVector.x += enemyForce.x;
+//                        forceVector.y += enemyForce.y;
+                        addToPoint(forceVector,calculateAntigravityForce(v));
+                        alives++;
+                    }
+                }
+
+//                addToPoint(forceVector,calculateAntigravityForce(2,Math.PI,getY()));
+//                addToPoint(forceVector,calculateAntigravityForce(2,0,getHeight()-getY()));
+//                addToPoint(forceVector,calculateAntigravityForce(2,Math.PI*3/2,getX()));
+//                addToPoint(forceVector,calculateAntigravityForce(2,Math.PI/2,getWidth()-getX()));
+
+//                System.out.println(alives);
+                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,0,getY()+10));//BOTTOM
+                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,Math.PI,getBattleFieldHeight()-getY()+10));//TOP
+                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,Math.PI/2,getX()+10));
+                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,Math.PI*3/2,getBattleFieldWidth()-getX()+10));
+
+                System.out.println(forceVector);
+
+                double _angleGravity = Math.atan2(forceVector.x,forceVector.y);
+                x0 = getX();
+                y0 = getY();
+                a0 = _angleGravity;
+
+                toTurn = angleToTurn(Utils.normalAbsoluteAngle(_angleGravity-getHeadingRadians()));
+
+//
+//                if(toTurn < 0)
+//                {
+//                    setTurnLeftRadians(-toTurn);
+//                }
+//                else
+//                {
+//                    setTurnRightRadians(toTurn);
+//                }
+//                setAhead(Double.POSITIVE_INFINITY);
+                System.out.println((int)Math.toDegrees(_angleGravity));
+                if(forceVector.distance(0,0) == 0) {
+
+//                }else {
+                } else if(Math.abs(_angleGravity-getHeadingRadians())<Math.PI/2){
+                    setTurnRightRadians(Utils.normalRelativeAngle(_angleGravity - getHeadingRadians()));
+                    setAhead(Double.POSITIVE_INFINITY);
+                    System.out.println((int)Math.toDegrees(_angleGravity)+" "+(int) Math.toDegrees(Utils.normalRelativeAngle(_angleGravity - getHeadingRadians())) + "POS");
+//                }
+                } else {
+                    setTurnRightRadians(Utils.normalRelativeAngle(_angleGravity+Math.PI-getHeadingRadians()));
+                    setAhead(Double.NEGATIVE_INFINITY);
+                    System.out.println((int)Math.toDegrees(Utils.normalRelativeAngle(_angleGravity+Math.PI-getHeadingRadians()))+"NEG");
+                }
+                break;
+            case AVOID:
+//                chooseMovementMode();
+//                break;
+
+                if(!inAvoidance && avoidedEnemy != null)
+                {
+                    if(r.nextDouble() < 0.7)
+                    {
+                        chooseMovementMode();
+                        movementStateMachine();
+                    }
+
                     double _dist = r.nextGaussian()*movementAbs;
                     setAhead(_dist);
 //                    double _angle = Math.PI*(r.nextDouble()-0.5);
@@ -397,12 +475,39 @@ public class Pochelucr extends AdvancedRobot {
                         turnRightRadians(_angle);
                     inAvoidance = true;
                 }
-                else if(Math.abs(getDistanceRemaining()) <= movementThreshold) {
+                else if(Math.abs(getDistanceRemaining()) <= movementThreshold || avoidedEnemy == null) {
                     chooseMovementMode();
                     inAvoidance = false;
                 }
-
+                break;
         }
+    }
+
+    private void addToPoint (Point2D.Double point1, Point2D.Double point2)
+    {
+        point1.x += point2.x;
+        point1.y += point2.y;
+    }
+
+    private Point2D.Double calculateAntigravityForce(EnemyInfo enemy)
+    {
+        double absoluteBearing = enemy.getPredictedLastBearing(getX(),getY());
+        double distance = enemy.getPredictedDistance(getX(),getY());
+        return calculateAntigravityForce(enemyBaseGravityK,absoluteBearing,distance);
+    }
+
+//    private Point2D.Double calculateAntigravityForce(double k, double xy, boolean isY){
+//        double absoluteBearing = isY ? Math.atan2(0,xy-getY()) : Math.atan2(xy-getX(),);
+//        double distance = new Point2D.Double(x,y).distance(getX(),getY());
+//        return calculateAntigravityForce(k,absoluteBearing,distance);
+//    }
+
+    private Point2D.Double calculateAntigravityForce(double k, double absoluteBearing, double distance)
+    {
+        distance = Math.abs(distance);
+        System.out.println("bearing: "+(int)Math.toDegrees(absoluteBearing)+"; distance: "+distance);
+        return new Point2D.Double(-k*Math.sin(absoluteBearing)/(distance*distance),
+                                  -k*Math.cos(absoluteBearing)/(distance*distance));
     }
 
     private boolean canShoot(){
@@ -453,7 +558,7 @@ public class Pochelucr extends AdvancedRobot {
             scannedEnemy.setNewData(getHeadingRadians()+e.getBearingRadians(),e.getVelocity(),e.getDistance(),e.getHeadingRadians(),getTime(),getX(),getY());
 
             double energyDrop = scannedEnemy.lastEnergy - e.getEnergy();
-            if(energyDrop <= 3.0 && energyDrop >= 1.0) {
+            if(energyDrop <= 3.0 && energyDrop >= 1.0 && scannedEnemy == chosenEnemy) {
                 System.out.println("Energy drop: " + e.getName() + " " + (scannedEnemy.lastEnergy - e.getEnergy()) + " at " + getTime());
                 avoidedEnemy = scannedEnemy;
                 inAvoidance = false;

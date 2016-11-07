@@ -47,6 +47,11 @@ public class EnemyInfo {
 //        return lastDistance*Math.cos(lastBearing);
     }
 
+    public double getPredictedDistance(double x, double y)
+    {
+        return lastAbsPosition.distance(x,y);
+    }
+
     public double getPredictedLastBearing(double x, double y)
     {
         return Math.atan2(lastAbsPosition.x - x,lastAbsPosition.y - y);
