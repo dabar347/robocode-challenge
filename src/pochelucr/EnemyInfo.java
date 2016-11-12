@@ -9,6 +9,9 @@ public class EnemyInfo {
 
     private String name;
 
+    private double antigravityConstant = 1.0;
+    private final double antigravityConstantChangeFactor = 0.05;
+
     public double lastBearing = 0.0;
     public double lastVelocity = 0.0;
     public double lastHeading = 0.0;
@@ -21,6 +24,16 @@ public class EnemyInfo {
     public boolean isDead = false;
 
     public double lastEnergy = 0.0;
+
+    public double getAntigravityConstant()
+    {
+        return antigravityConstant;
+    }
+
+    public void increaseDanger()
+    {
+        antigravityConstant += antigravityConstantChangeFactor;
+    }
 
     public void setNewData(double bearing, double velocity, double distance, double heading, double time, double myX, double myY)
     {
