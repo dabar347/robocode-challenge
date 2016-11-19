@@ -1,5 +1,7 @@
-package pochelucr;
+package pochelucr.targeting;
 
+import pochelucr.EnemyInfo;
+import pochelucr.Strategy;
 import robocode.AdvancedRobot;
 import robocode.Bullet;
 
@@ -8,9 +10,7 @@ import java.util.ArrayList;
 /**
  * Created by dabar347 on 12/11/2016.
  */
-public abstract class TargetingStrategy {
-
-    protected AdvancedRobot robot;
+public abstract class TargetingStrategy extends Strategy{
 
     protected ArrayList<Bullet> shotBullets = new ArrayList<Bullet>();
     protected int hitCount = 1, n = 1;
@@ -36,27 +36,21 @@ public abstract class TargetingStrategy {
         }
     }
 
+    @Override
     public double getAccuracy()
     {
         return (double)hitCount/(double)n;
     }
 
-    public void setRobot(AdvancedRobot robot)
-    {
-        if(this.robot != null)
-            return;
-        this.robot = robot;
-    }
-
     public TargetingStrategy(AdvancedRobot robot)
     {
-        setRobot(robot);
+        super(robot);
     }
 
     @Override
     public String toString()
     {
-        return "Targeting " + getAccuracy();
+        return "Targeting " + super.toString();
     }
 
     public abstract double target(EnemyInfo enemy, double bulletPower);

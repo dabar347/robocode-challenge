@@ -1,23 +1,35 @@
 package pochelucr;
 
+import pochelucr.movement.AntigravityMovementStrategy;
+import pochelucr.movement.AvoidMovementStrategy;
+import pochelucr.movement.MovementStrategy;
+import pochelucr.movement.RammingMovementStrategy;
+import pochelucr.targeting.CircularTargetingStrategy;
+import pochelucr.targeting.HeadOnTargetingStrategy;
+import pochelucr.targeting.TargetingStrategy;
 import robocode.*;
 import robocode.util.Utils;
 
 import java.awt.*;
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 import java.util.logging.Logger;
 
 public class Pochelucr extends AdvancedRobot {
 
     //DEBUG
-    private double x0,y0,x1,y1,a0,a1;
     private static Logger LOGGER = Logger.getLogger(Pochelucr.class.getName());
+
+    private static ArrayList<EnemyInfo> enemies = new ArrayList<EnemyInfo>();
+    private EnemyInfo chosenEnemy = null;
+    private EnemyInfo avoidedEnemy = null;
 
     private static ArrayList<TargetingStrategy> targetingStrategies = new ArrayList<TargetingStrategy>();
     private static TargetingStrategy targetingStrategy = null;
+
+    private static ArrayList<MovementStrategy> movementStrategies = new ArrayList<MovementStrategy>();
+    private AvoidMovementStrategy avoidanceStrategy = new AvoidMovementStrategy(this,enemies);
+    private MovementStrategy movementStrategy = null;
 
     public void onPaint(Graphics2D g)
     {
@@ -34,9 +46,9 @@ public class Pochelucr extends AdvancedRobot {
 //        g.drawLine((int)x0,(int)y0,(int)(1000*Math.sin(a1+getGunHeadingRadians()-getGunTurnRemainingRadians())),(int)(1000*Math.cos(a1-getGunTurnRemainingRadians())));
 
 //        System.out.println(targetingStrategy);
-//        LOGGER.info("+++DEBUG+++");
-//        LOGGER.info(movementMode.toString());
-//        LOGGER.info(roboMode);
+        LOGGER.info("+++DEBUG+++");
+        LOGGER.info(movementStrategy.toString());
+        LOGGER.info(targetingStrategy.toString());
 //        LOGGER.info(targetingMode);
 
     }
@@ -48,24 +60,14 @@ public class Pochelucr extends AdvancedRobot {
     private Random r = new Random();
 
     private final double aimingAngleThreshold = 0.1;
-    private final double movementThreshold = 0.05;
     private final double enemyChoiseThreshold = 50.0;
     private final double gunHeatAimingThreshold = 0.1;
 
-    private final double wallBaseGravityK = 5;
-    private final double enemyBaseGravityK = 1;
 
     private double bulletPower = 1;
 
-//    private static int bulletHit[] = new int[TargetingMode.values().length];
-//    private static ArrayList<ArrayList<Integer>> bulletShoot = new ArrayList<ArrayList<Integer>>();
-//    private static int bulletShoot[] = new int[TargetingMode.values().length];
     private final int targetingRecalculationTime = 50;
     private final int movementRecalculationTime = 250;
-
-    private static ArrayList<EnemyInfo> enemies = new ArrayList<EnemyInfo>();
-    private EnemyInfo chosenEnemy = null;
-    private EnemyInfo avoidedEnemy = null;
 
     private enum GunMode {
         OFF,
@@ -83,42 +85,6 @@ public class Pochelucr extends AdvancedRobot {
 
     private RoboMode roboMode = RoboMode.SCANNING;
 
-    private enum TargetingMode {
-        HEAD_ON,
-        LINEAR,
-        LINEAR_HEAD_FAKE,
-        CIRCULAR;
-
-        private static TargetingMode[] _values = TargetingMode.values();
-        public static TargetingMode fromInteger(int x) {
-            if(x < _values.length)
-            {
-                return _values[x];
-            }
-            return null;
-        }
-    }
-
-    private TargetingMode targetingMode = TargetingMode.CIRCULAR;
-
-    private enum MovementMode {
-        PENDULUM,
-        RAMMING,
-        ANTIGRAVITY,
-        AVOID;
-
-        private static MovementMode[] _values = MovementMode.values();
-        public static MovementMode fromInteger(int x) {
-            if(x < _values.length)
-            {
-                return _values[x];
-            }
-            return null;
-        }
-    }
-
-    private MovementMode movementMode = MovementMode.PENDULUM;
-
     private long lastTargetingRecalculationTime = -targetingRecalculationTime;
     private long lastMovementRecalculationTime = -movementRecalculationTime;
 
@@ -135,7 +101,6 @@ public class Pochelucr extends AdvancedRobot {
                 setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
 
                 if(chosenEnemy != null)
-//                    bulletPower = 3*chosenEnemy.lastDistance/getWidth()/2+getEnergy()/200+1;
                     bulletPower = 2*((1-chosenEnemy.lastDistance/getBattleFieldWidth())*3/4+(getEnergy()/100)/4)+1;
 
                 if (getTime() - lastTargetingRecalculationTime >= targetingRecalculationTime)
@@ -152,7 +117,6 @@ public class Pochelucr extends AdvancedRobot {
 
                 roboStateMachine();
                 movementStateMachine();
-//                setTurnGunRight(10);
                 execute();
             }
         } catch (RuntimeException re) {
@@ -162,10 +126,7 @@ public class Pochelucr extends AdvancedRobot {
 
     private void chooseMovementMode()
     {
-        movementMode = MovementMode.fromInteger(r.nextInt(MovementMode.values().length-1));
-
-        movementMode = MovementMode.ANTIGRAVITY;
-//        LOGGER.info(movementMode);
+        movementStrategy = movementStrategies.get(r.nextInt(movementStrategies.size()));
     }
 
     private void chooseTargetingMode()
@@ -269,7 +230,6 @@ public class Pochelucr extends AdvancedRobot {
                 break;
             case WHEN_READY:
                 if(canShoot()) {
-//                    bulletIds.get(targetingMode).add(setFireBullet(bulletPower).);
                     prepareFire();
                     roboMode = RoboMode.SCANNING;
                 }
@@ -284,20 +244,16 @@ public class Pochelucr extends AdvancedRobot {
                     chasingTime -= getTime() - lastChasingTime;
                     lastChasingTime = getTime();
                     double minimumTime = chosenEnemy.lastDistance/Rules.getBulletSpeed(1.0);
-//                    LOGGER.info("Before Chase: "+chasingTime+"; Min: "+minimumTime);
                     if(chasingTime < minimumTime)
                     {
                         prepareFire();
                         chasingTime = chosenEnemy.lastDistance/Rules.getBulletSpeed(bulletPower);
-//                        LOGGER.info("First: "+bulletPower);
                     }
                     else
                     {
                         double _bulletPower = (20 - chosenEnemy.lastDistance/chasingTime)/3;
                         prepareFire(_bulletPower);
-//                        LOGGER.info("Following: "+_bulletPower);
                     }
-//                    LOGGER.info("After Chase: "+chasingTime+"; Min: "+minimumTime);
                     roboMode = RoboMode.TO_AIM;
                     return;
                 }
@@ -313,7 +269,6 @@ public class Pochelucr extends AdvancedRobot {
         try {
             if(targetingStrategy != null)
                 targetingStrategy.addBullet(setFireBullet(_bulletPower));
-//            bulletShoot.get(targetingMode.ordinal()).add(setFireBullet(_bulletPower).hashCode());
         }
         catch(Exception e)
         {
@@ -322,42 +277,10 @@ public class Pochelucr extends AdvancedRobot {
     }
 
     private void targetStateMachine(){
-        if(chosenEnemy == null /*|| getGunHeat() > gunHeatAimingThreshold*/)
+        if(chosenEnemy == null || getGunHeat() > gunHeatAimingThreshold)
             return;
 
-        double turnAngle = 0.0;
-
-//        switch (targetingMode)
-//        {
-//            case HEAD_ON:
-//                turnAngle = chosenEnemy.getPredictedLastBearing(getX(),getY())-getGunHeadingRadians();
-//                break;
-//            case LINEAR:
-//                turnAngle = chosenEnemy.getPredictedLastBearing(getX(),getY())-getGunHeadingRadians() + (chosenEnemy.lastVelocity * Math.sin(chosenEnemy.lastHeading - chosenEnemy.getPredictedLastBearing(getX(),getY())) / Rules.getBulletSpeed(bulletPower));
-//                break;
-//            case LINEAR_HEAD_FAKE:
-//                turnAngle = chosenEnemy.getPredictedLastBearing(getX(),getY())-getGunHeadingRadians() + (-chosenEnemy.lastVelocity * Math.sin(chosenEnemy.lastHeading - chosenEnemy.getPredictedLastBearing(getX(),getY())) / Rules.getBulletSpeed(bulletPower));
-//                break;
-//            case CIRCULAR:
-//                double dT = 0.0;
-//                double predictedX = chosenEnemy.getRelativeX(getX()), predictedY = chosenEnemy.getRelativeY(getY());
-//                while((++dT*Rules.getBulletSpeed(bulletPower)+getGunHeat()/getGunCoolingRate()+Math.abs(turnAngle)/Rules.GUN_TURN_RATE_RADIANS) < Point2D.Double.distance(0,0,predictedX,predictedY)){
-//                    predictedX += chosenEnemy.lastVelocity*Math.sin(chosenEnemy.lastHeading + chosenEnemy.lastTurnRate*dT);
-//                    predictedY += chosenEnemy.lastVelocity*Math.cos(chosenEnemy.lastHeading + chosenEnemy.lastTurnRate*dT);
-//                    turnAngle = Math.atan2(predictedX,predictedY) - getGunHeadingRadians();
-//                }
-//
-//
-////                x0 = getX();
-////                x1 = predictedX+getX();
-////                y0 = getY();
-////                y1 = predictedY+getY();
-////                a0 = Math.atan2(predictedX,predictedY);
-////                a1 = turnAngle;
-//
-////                LOGGER.info("rX = "+predictedX+"; rY = "+predictedY+"; a = "+(int)Math.toDegrees(turnAngle)+"; a0 = "+(int)Math.toDegrees(Math.atan2(predictedY,predictedX)));
-//                break;
-//        }
+        double turnAngle;
 
         if(targetingStrategy == null)
         {
@@ -377,163 +300,15 @@ public class Pochelucr extends AdvancedRobot {
         roboMode = RoboMode.TO_FIRE;
     }
 
-    private double angleForLenearTargeting()
-    {
-        return 0.0;
-    }
-
-    private int direction = 1;
-    private final int movementAbs = 150;
-
-    private boolean inAvoidance = false;
-
     private void movementStateMachine(){
-        switch (movementMode)
+        movementStrategy.doMove(chosenEnemy,avoidedEnemy);
+        if(movementStrategy.needsInteruption())
         {
-            case PENDULUM:
-                if(Math.abs(getDistanceRemaining()) <= movementThreshold) {
-                    setAhead(movementAbs * direction);
-                    direction *= -1;
-                }
-                break;
-            case RAMMING:
-                if(chosenEnemy == null)
-                    return;
-                double toTurn = angleToTurn(Utils.normalAbsoluteAngle(chosenEnemy.lastBearing - getHeadingRadians()));
-                if(toTurn < 0)
-                {
-                    setTurnLeftRadians(-toTurn);
-                }
-                else
-                {
-                    setTurnRightRadians(toTurn);
-                }
-                setAhead(chosenEnemy.lastDistance*(Math.PI-Math.abs(toTurn))/Math.PI);
-                break;
-            case ANTIGRAVITY:
-                Point2D.Double forceVector = new Point2D.Double();
-
-                int alives = 0;
-
-                for (EnemyInfo v : enemies)
-                {
-                    if (!v.isDead)
-                    {
-//                        Point2D.Double enemyForce = calculateAntigravityForce(v);
-//                        forceVector.x += enemyForce.x;
-//                        forceVector.y += enemyForce.y;
-                        addToPoint(forceVector,calculateAntigravityForce(v));
-                        alives++;
-                    }
-                }
-
-//                addToPoint(forceVector,calculateAntigravityForce(2,Math.PI,getY()));
-//                addToPoint(forceVector,calculateAntigravityForce(2,0,getHeight()-getY()));
-//                addToPoint(forceVector,calculateAntigravityForce(2,Math.PI*3/2,getX()));
-//                addToPoint(forceVector,calculateAntigravityForce(2,Math.PI/2,getWidth()-getX()));
-
-                LOGGER.info("Alive"+alives);
-                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,0,getY()+10));//BOTTOM
-                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,Math.PI,getBattleFieldHeight()-getY()+10));//TOP
-                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,Math.PI/2,getX()+10));
-                addToPoint(forceVector,calculateAntigravityForce(-alives*wallBaseGravityK,Math.PI*3/2,getBattleFieldWidth()-getX()+10));
-
-                LOGGER.info(forceVector.toString());
-
-                double _angleGravity = Math.atan2(forceVector.x,forceVector.y);
-                x0 = getX();
-                y0 = getY();
-                a0 = _angleGravity;
-
-                toTurn = angleToTurn(Utils.normalAbsoluteAngle(_angleGravity-getHeadingRadians()));
-
-//
-//                if(toTurn < 0)
-//                {
-//                    setTurnLeftRadians(-toTurn);
-//                }
-//                else
-//                {
-//                    setTurnRightRadians(toTurn);
-//                }
-//                setAhead(Double.POSITIVE_INFINITY);
-                System.out.println((int)Math.toDegrees(_angleGravity));
-                if(forceVector.distance(0,0) == 0) {
-
-//                }else {
-                } else if(Math.abs(_angleGravity-getHeadingRadians())<Math.PI/2){
-                    setTurnRightRadians(Utils.normalRelativeAngle(_angleGravity - getHeadingRadians()));
-                    setAhead(Double.POSITIVE_INFINITY);
-                    System.out.println((int)Math.toDegrees(_angleGravity)+" "+(int) Math.toDegrees(Utils.normalRelativeAngle(_angleGravity - getHeadingRadians())) + "POS");
-//                }
-                } else {
-                    setTurnRightRadians(Utils.normalRelativeAngle(_angleGravity+Math.PI-getHeadingRadians()));
-                    setAhead(Double.NEGATIVE_INFINITY);
-                    System.out.println((int)Math.toDegrees(Utils.normalRelativeAngle(_angleGravity+Math.PI-getHeadingRadians()))+"NEG");
-                }
-                break;
-            case AVOID:
-//                chooseMovementMode();
-//                break;
-
-                if(!inAvoidance && avoidedEnemy != null)
-                {
-                    if(r.nextDouble() < 0.7)
-                    {
-                        chooseMovementMode();
-                        movementStateMachine();
-                    }
-
-                    double _dist = r.nextGaussian()*movementAbs;
-                    setAhead(_dist);
-//                    double _angle = Math.PI*(r.nextDouble()-0.5);
-                    double _angle = angleToTurn(Utils.normalAbsoluteAngle(r.nextGaussian()*Math.toRadians(30)+Math.PI/2+avoidedEnemy.lastBearing-getHeadingRadians()));
-//                    LOGGER.info("Avoid angle = "+Math.toDegrees(_angle));
-//                    LOGGER.info("Avoid dist  = "+_dist);
-                    if(_angle < 0)
-                        turnLeftRadians(-_angle);
-                    else
-                        turnRightRadians(_angle);
-                    inAvoidance = true;
-                }
-                else if(Math.abs(getDistanceRemaining()) <= movementThreshold || avoidedEnemy == null) {
-                    chooseMovementMode();
-                    inAvoidance = false;
-                }
-                break;
+            chooseMovementMode();
         }
     }
 
-    private void addToPoint (Point2D.Double point1, Point2D.Double point2)
-    {
-        point1.x += point2.x;
-        point1.y += point2.y;
-    }
-
-    private Point2D.Double calculateAntigravityForce(EnemyInfo enemy)
-    {
-        double absoluteBearing = enemy.getPredictedLastBearing(getX(),getY());
-        double distance = enemy.getPredictedDistance(getX(),getY());
-        return calculateAntigravityForce(enemy.getAntigravityConstant(),absoluteBearing,distance);
-    }
-
-//    private Point2D.Double calculateAntigravityForce(double k, double xy, boolean isY){
-//        double absoluteBearing = isY ? Math.atan2(0,xy-getY()) : Math.atan2(xy-getX(),);
-//        double distance = new Point2D.Double(x,y).distance(getX(),getY());
-//        return calculateAntigravityForce(k,absoluteBearing,distance);
-//    }
-
-    private Point2D.Double calculateAntigravityForce(double k, double absoluteBearing, double distance)
-    {
-        distance = Math.abs(distance);
-//        LOGGER.info("bearing: "+(int)Math.toDegrees(absoluteBearing)+"; distance: "+distance);
-        return new Point2D.Double(-k*Math.sin(absoluteBearing)/(distance*distance),
-                                  -k*Math.cos(absoluteBearing)/(distance*distance));
-    }
-
     private boolean canShoot(){
-//        LOGGER.info("Turn remaining = "+getGunTurnRemainingRadians());
-//        LOGGER.info("Gun heat = "+getGunHeat());
         return (getGunHeat() == 0.0 && Math.abs(getGunTurnRemainingRadians()) <= aimingAngleThreshold);
     }
 
@@ -547,15 +322,9 @@ public class Pochelucr extends AdvancedRobot {
         if(round == 0) {
             targetingStrategies.add(new CircularTargetingStrategy(this));
             targetingStrategies.add(new HeadOnTargetingStrategy(this));
-//            targetingStrategies
 
-//            Arrays.fill(bulletHit, 1);
-//            for (int i = 0; i < TargetingMode.values().length; i++)
-//            {
-//                bulletShoot.add(new ArrayList<Integer>());
-//                bulletShoot.get(i).add(0);
-//            }
-//            Arrays.fill(bulletShoot, 1);
+            movementStrategies.add(new AntigravityMovementStrategy(this,enemies));
+            movementStrategies.add(new RammingMovementStrategy(this,enemies));
         }
         round++;
     }
@@ -571,9 +340,6 @@ public class Pochelucr extends AdvancedRobot {
         try {
             setTurnRadarLeftRadians(getRadarTurnRemainingRadians());
 
-//            if(roboMode != RoboMode.SCANNING)
-//                return;
-
             EnemyInfo scannedEnemy = getEnemyByName(e.getName());
             if(scannedEnemy == null)
             {
@@ -584,11 +350,9 @@ public class Pochelucr extends AdvancedRobot {
 
             double energyDrop = scannedEnemy.lastEnergy - e.getEnergy();
             if(energyDrop <= 3.0 && energyDrop >= 1.0 && scannedEnemy == chosenEnemy) {
-//                LOGGER.info("Energy drop: " + e.getName() + " " + (scannedEnemy.lastEnergy - e.getEnergy()) + " at " + getTime());
                 avoidedEnemy = scannedEnemy;
-                inAvoidance = false;
-                movementMode = MovementMode.AVOID;
-//                LOGGER.info(movementMode);
+                movementStrategy = avoidanceStrategy;
+                avoidanceStrategy.setReset();
             }
 
             scannedEnemy.lastEnergy = e.getEnergy();
@@ -605,10 +369,6 @@ public class Pochelucr extends AdvancedRobot {
         } catch (RuntimeException re) {
             LOGGER.severe(re.toString());
         }
-    }
-
-    public static double rollingAvg(double value, double newEntry, double n, double weighting ) {
-        return (value * n + newEntry * weighting)/(n + weighting);
     }
 
     public EnemyInfo getEnemyByName(String name)
@@ -640,7 +400,6 @@ public class Pochelucr extends AdvancedRobot {
             {
                 enemy.lastEnergy += Rules.getBulletDamage(e.getBullet().getPower());
                 enemy.increaseDanger();
-                System.out.println(enemy.getName()+" "+enemy.getAntigravityConstant());
             }
         } catch (RuntimeException re) {
             LOGGER.severe(re.toString());
@@ -653,11 +412,6 @@ public class Pochelucr extends AdvancedRobot {
         try {
             for (int i = 0; i < targetingStrategies.size(); i++)
             {
-//                if(bulletShoot.get(i).contains(e.getBullet().hashCode()))
-//                {
-//                    bulletHit[i]++;
-//                    break;
-//                }
                 if(targetingStrategies.get(i).hitBulletCheck(e.getBullet()))
                     break;
             }
@@ -667,7 +421,6 @@ public class Pochelucr extends AdvancedRobot {
             {
                 enemy.lastEnergy -= Rules.getBulletDamage(e.getBullet().getPower());
             }
-//            bulletHit[targetingMode.ordinal()]++;
         } catch (RuntimeException re) {
             LOGGER.severe(re.toString());
         }
@@ -685,9 +438,8 @@ public class Pochelucr extends AdvancedRobot {
 
     //Trivial
     public void onHitWall(HitWallEvent e) {
-        inAvoidance = false;
-        movementMode = MovementMode.AVOID;
-//        LOGGER.info(movementMode);
+        movementStrategy = avoidanceStrategy;
+        avoidanceStrategy.setReset();
     }
 
 

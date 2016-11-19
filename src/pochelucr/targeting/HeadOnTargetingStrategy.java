@@ -1,9 +1,7 @@
-package pochelucr;
+package pochelucr.targeting;
 
+import pochelucr.EnemyInfo;
 import robocode.AdvancedRobot;
-import robocode.Rules;
-
-import java.awt.geom.Point2D;
 
 /**
  * Created by dabar347 on 12/11/2016.
@@ -20,6 +18,6 @@ public class HeadOnTargetingStrategy extends TargetingStrategy{
     @Override
     public String toString()
     {
-        return "HeadOn"+super.toString();
+        return "HeadOn "+super.toString();
     }
 }

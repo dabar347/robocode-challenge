@@ -1,5 +1,6 @@
-package pochelucr;
+package pochelucr.targeting;
 
+import pochelucr.EnemyInfo;
 import robocode.AdvancedRobot;
 import robocode.Rules;
 
@@ -30,6 +31,6 @@ public class CircularTargetingStrategy extends TargetingStrategy {
     @Override
     public String toString()
     {
-        return "Circular"+super.toString();
+        return "Circular "+super.toString();
     }
 }
