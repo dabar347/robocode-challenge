@@ -1,9 +1,6 @@
 package pochelucr;
 
-import pochelucr.movement.AntigravityMovementStrategy;
-import pochelucr.movement.AvoidMovementStrategy;
-import pochelucr.movement.MovementStrategy;
-import pochelucr.movement.RammingMovementStrategy;
+import pochelucr.movement.*;
 import pochelucr.targeting.CircularTargetingStrategy;
 import pochelucr.targeting.HeadOnTargetingStrategy;
 import pochelucr.targeting.TargetingStrategy;
@@ -24,32 +21,16 @@ public class Pochelucr extends AdvancedRobot {
     private EnemyInfo chosenEnemy = null;
     private EnemyInfo avoidedEnemy = null;
 
-    private static ArrayList<TargetingStrategy> targetingStrategies = new ArrayList<TargetingStrategy>();
+    private static ArrayList<Strategy> targetingStrategies = new ArrayList<Strategy>();
     private static TargetingStrategy targetingStrategy = null;
 
-    private static ArrayList<MovementStrategy> movementStrategies = new ArrayList<MovementStrategy>();
+    private static ArrayList<Strategy> movementStrategies = new ArrayList<Strategy>();
     private AvoidMovementStrategy avoidanceStrategy = new AvoidMovementStrategy(this,enemies);
+    private MovementStrategy normalMovementStrategy = null;
     private MovementStrategy movementStrategy = null;
 
     public void onPaint(Graphics2D g)
     {
-//        g.setColor(Color.green);
-//
-//        g.drawLine((int)x0,(int)y0,(int)x1,(int)y1);
-//
-//        g.setColor(Color.BLUE);
-
-//        g.drawLine((int)x0,(int)y0,(int)(1000*Math.sin(a0)),(int)(1000*Math.cos(a0)));
-//
-//        g.setColor(Color.RED);
-//
-//        g.drawLine((int)x0,(int)y0,(int)(1000*Math.sin(a1+getGunHeadingRadians()-getGunTurnRemainingRadians())),(int)(1000*Math.cos(a1-getGunTurnRemainingRadians())));
-
-//        System.out.println(targetingStrategy);
-        LOGGER.info("+++DEBUG+++");
-        LOGGER.info(movementStrategy.toString());
-        LOGGER.info(targetingStrategy.toString());
-//        LOGGER.info(targetingMode);
 
     }
 
@@ -66,7 +47,7 @@ public class Pochelucr extends AdvancedRobot {
 
     private double bulletPower = 1;
 
-    private final int targetingRecalculationTime = 50;
+    private final int targetingRecalculationTime = 250;
     private final int movementRecalculationTime = 250;
 
     private enum GunMode {
@@ -100,13 +81,15 @@ public class Pochelucr extends AdvancedRobot {
                 //Add your execute methods here
                 setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
 
-                if(chosenEnemy != null)
-                    bulletPower = 2*((1-chosenEnemy.lastDistance/getBattleFieldWidth())*3/4+(getEnergy()/100)/4)+1;
+                if(chosenEnemy != null) {
+                    bulletPower = 2 * ((1 - chosenEnemy.lastDistance / getBattleFieldWidth()) * 3 / 4 + (getEnergy() / 100) / 4) + 1;
+                    bulletPower = (Rules.getBulletDamage(bulletPower) > chosenEnemy.lastEnergy) ? chosenEnemy.lastEnergy/4 : bulletPower;
+                }
 
                 if (getTime() - lastTargetingRecalculationTime >= targetingRecalculationTime)
                 {
                     lastTargetingRecalculationTime = getTime();
-                    chooseTargetingMode();
+                    targetingStrategy = (TargetingStrategy)chooseMode(targetingStrategies);
                 }
 
                 if (getTime() - lastMovementRecalculationTime >= movementRecalculationTime)
@@ -115,7 +98,8 @@ public class Pochelucr extends AdvancedRobot {
                     chooseMovementMode();
                 }
 
-                roboStateMachine();
+                targetStateMachine();
+                gunStateMachine();
                 movementStateMachine();
                 execute();
             }
@@ -126,17 +110,17 @@ public class Pochelucr extends AdvancedRobot {
 
     private void chooseMovementMode()
     {
-        movementStrategy = movementStrategies.get(r.nextInt(movementStrategies.size()));
+        movementStrategy = normalMovementStrategy;
     }
 
-    private void chooseTargetingMode()
+    private Strategy chooseMode(ArrayList<Strategy> strategies)
     {
-        double bulletAvg[] = new double[targetingStrategies.size()];
+        double avg[] = new double[strategies.size()];
 
-        for (int i = 0; i < targetingStrategies.size(); i++)
+        for (int i = 0; i < strategies.size(); i++)
         {
             try {
-                bulletAvg[i] = targetingStrategies.get(i).getAccuracy();
+                avg[i] = strategies.get(i).getAccuracy();
             }
             catch(IndexOutOfBoundsException e)
             {
@@ -149,76 +133,45 @@ public class Pochelucr extends AdvancedRobot {
             double maxV = 0.0;
             int maxI = 0;
 
-            for (int i = 0; i < bulletAvg.length; i++)
+            for (int i = 0; i < avg.length; i++)
             {
-                if (maxV < bulletAvg[i])
+                if (maxV < avg[i])
                 {
                     maxI = i;
-                    maxV = bulletAvg[i];
+                    maxV = avg[i];
                 }
             }
 
-//            targetingMode = TargetingMode.fromInteger(maxI);
-            targetingStrategy = targetingStrategies.get(maxI);
-
-            return;
+            return strategies.get(maxI);
         }
 
-        double bulletHitSum = 0;
+        double sum = 0;
 
-        for (double v : bulletAvg)
+        for (double v : avg)
         {
-            bulletHitSum += v;
+            sum += v;
         }
 
-        for(int i = 0; i < bulletAvg.length; i++)
+        for(int i = 0; i < avg.length; i++)
         {
-            if (bulletHitSum == 0)
-                bulletAvg[i] = 1.0/bulletAvg.length;
+            if (sum == 0)
+                avg[i] = 1.0/avg.length;
             else
-                bulletAvg[i] = bulletAvg[i]/bulletHitSum;
+                avg[i] = avg[i]/sum;
         }
 
         double _r = r.nextDouble();
         double cumulativeProb = 0.0;
 
-//        LOGGER.info("");
-//        LOGGER.info("_r="+_r);
-//        for (int i = 0; i < bulletAvg.length; i++)
-//        {
-////            LOGGER.info(TargetingMode.fromInteger(i)+"="+bulletAvg[i]+" "+bulletHit[i]+" "+bulletShoot.get(i).size());
-//            LOGGER.info(targetingStrategies.get(i).toString());
-//        }
-
-        for (int i = 0; i < bulletAvg.length; i++)
+        for (int i = 0; i < avg.length; i++)
         {
-            cumulativeProb += bulletAvg[i];
+            cumulativeProb += avg[i];
             if(_r <= cumulativeProb){
-//                targetingMode = TargetingMode.fromInteger(i);
-                targetingStrategy = targetingStrategies.get(i);
-                break;
+                return strategies.get(i);
             }
         }
 
-        if(targetingStrategy == null)
-        {
-            LOGGER.severe("_r = "+_r+", cP = "+cumulativeProb);
-        }
-
-//        LOGGER.info("targetingMode="+targetingMode);
-
-    }
-
-    private void roboStateMachine() {
-        switch (roboMode)
-        {
-            case TO_AIM:
-                targetStateMachine();
-                break;
-            case TO_FIRE:
-                gunStateMachine();
-                break;
-        }
+        return null;
     }
 
     private double chasingTime = 0.0;
@@ -259,7 +212,6 @@ public class Pochelucr extends AdvancedRobot {
                 }
         }
     }
-
 
     private void prepareFire() {
         prepareFire(bulletPower);
@@ -323,9 +275,9 @@ public class Pochelucr extends AdvancedRobot {
             targetingStrategies.add(new CircularTargetingStrategy(this));
             targetingStrategies.add(new HeadOnTargetingStrategy(this));
 
-            movementStrategies.add(new AntigravityMovementStrategy(this,enemies));
-            movementStrategies.add(new RammingMovementStrategy(this,enemies));
+            movementStrategies.add(new MinimumRiskMovementStrategy(this,enemies));
         }
+        normalMovementStrategy = (MovementStrategy)chooseMode(movementStrategies);
         round++;
     }
 
@@ -371,7 +323,7 @@ public class Pochelucr extends AdvancedRobot {
         }
     }
 
-    public EnemyInfo getEnemyByName(String name)
+    private EnemyInfo getEnemyByName(String name)
     {
         for(EnemyInfo v : enemies)
         {
@@ -386,6 +338,7 @@ public class Pochelucr extends AdvancedRobot {
     public void onRobotDeath(RobotDeathEvent e) {
         try {
             getEnemyByName(e.getName()).isDead = true;
+            getEnemyByName(e.getName()).decreaseDanger();
         } catch (RuntimeException re) {
             LOGGER.severe(re.toString());
         }
@@ -412,7 +365,7 @@ public class Pochelucr extends AdvancedRobot {
         try {
             for (int i = 0; i < targetingStrategies.size(); i++)
             {
-                if(targetingStrategies.get(i).hitBulletCheck(e.getBullet()))
+                if(((TargetingStrategy)(targetingStrategies.get(i))).hitBulletCheck(e.getBullet()))
                     break;
             }
 
@@ -446,7 +399,7 @@ public class Pochelucr extends AdvancedRobot {
     //Congrats
     public void onWin(WinEvent e) {
         try {
-
+            normalMovementStrategy.increaseAccuracy();
         } catch (RuntimeException re) {
             LOGGER.severe(re.toString());
         }
@@ -456,7 +409,7 @@ public class Pochelucr extends AdvancedRobot {
     //GG, code some more to kill them all!
     public void onDeath(DeathEvent e) {
         try {
-
+            normalMovementStrategy.decreaseAccuracy();
         } catch (RuntimeException re) {
             LOGGER.severe(re.toString());
         }

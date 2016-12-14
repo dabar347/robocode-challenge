@@ -3,6 +3,7 @@ package pochelucr.movement;
 import pochelucr.EnemyInfo;
 import pochelucr.Strategy;
 import robocode.AdvancedRobot;
+import robocode.util.Utils;
 
 import java.util.List;
 
@@ -14,6 +15,9 @@ public abstract class MovementStrategy extends Strategy{
     //CONSTS
     protected final int movementAbs = 150;
     protected final double movementThreshold = 0.05;
+
+    private int wonRounds = 0   ;
+    private int nRounds = 0;
 
     private boolean isFinished = false;
 
@@ -35,10 +39,32 @@ public abstract class MovementStrategy extends Strategy{
     @Override
     public double getAccuracy()
     {
-        return 1.0;
+        return (nRounds == 0 ? 1 : (wonRounds == 0 ? 1.0/nRounds : (double)wonRounds/nRounds));
+    }
+
+    public void increaseAccuracy()
+    {
+        wonRounds++;
+        nRounds++;
+    }
+
+    public void decreaseAccuracy()
+    {
+        nRounds++;
     }
 
     public abstract void doMove(EnemyInfo chosenEnemy, EnemyInfo avoidedEnemy);
+
+    protected void moveToBearingDistane(double bearing, double distance)
+    {
+        if(Math.abs(bearing-robot.getHeadingRadians())<Math.PI/2){
+            robot.setTurnRightRadians(Utils.normalRelativeAngle(bearing - robot.getHeadingRadians()));
+            robot.setAhead(distance);
+        } else {
+            robot.setTurnRightRadians(Utils.normalRelativeAngle(bearing+Math.PI-robot.getHeadingRadians()));
+            robot.setBack(distance);
+        }
+    }
 
     protected List<EnemyInfo> enemies = null;
     public void setEnemyList(List<EnemyInfo> enemies)

@@ -35,6 +35,11 @@ public class EnemyInfo {
         antigravityConstant += antigravityConstantChangeFactor;
     }
 
+    public void decreaseDanger()
+    {
+        antigravityConstant *= 1 - antigravityConstantChangeFactor;
+    }
+
     public void setNewData(double bearing, double velocity, double distance, double heading, double time, double myX, double myY)
     {
         lastBearing = bearing;
